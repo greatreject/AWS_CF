@@ -1,0 +1,290 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  This template creates the base security groups for a 3 Tier VPC
+Metadata:
+  Stack:
+    Value: 0
+  VersionDate:
+    Value: 20190725
+  Identifier:
+    Value: main
+  Input:
+    Description: Input of all required parameters in the stack
+  Output:
+    Description: N/A
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: General Configuration
+      Parameters:
+      - VPCID
+      - Environment
+      - NameofRegion
+    - Label:
+        default: Business Identification
+      Parameters:
+      - BusinessUnit
+      - CostCenter
+    ParameterLabels:
+      VPCID:
+        default: VPC ID
+      Environment:
+        default: Environment
+      NameofRegion:
+        default: Region
+      BusinessUnit:
+        default: Business Unit identifiers
+      CostCenter:
+        default: Cost Center
+
+Parameters:
+  VPCID:
+    Description: "List of VPC's."
+    Type: AWS::EC2::VPC::Id 
+  Environment:
+    Description: "Environment type (Production = prd; Development = dev; Pre Production = uat)"
+    AllowedValues:
+    - prd
+    - dev
+    - uat
+    Type: String
+    Default: dev
+  NameofRegion:
+    Description: 'Region value used in Name tags string : Ireland = euw1; UK = euw2 (example : scg-euw1-dev-pub-t1)'
+    AllowedValues:
+    - euw1
+    - euw2
+    Type: String
+    Default: euw1
+  BusinessUnit:
+    Description: "Business Unit identifiers"
+    Default: bu07
+    Type: String
+  CostCenter:
+    Description: "Cost Center for Billing"
+    Default: HQ - ENGIE UK
+    Type: String
+
+Resources:
+  ### Create Security Group - Public Subnet Tier 1
+  SecGrpPubT1:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPCID
+      GroupDescription: "Default Security Group - VPC Public Subnet"
+      GroupName: SecGrpPubt1
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - ''
+          - - scg
+            - "-"            
+            - Ref: NameofRegion
+            - "-"
+            - Ref: Environment
+            - "-"
+            - pub
+            - "-"
+            - t1 
+      - Key: Business Unit
+        Value:
+          Ref: BusinessUnit
+      - Key: Cost Center
+        Value:
+          Ref: CostCenter 
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3389
+        ToPort: 3389
+        CidrIp: 10.157.0.0/16
+      - IpProtocol: tcp
+        FromPort: 3389
+        ToPort: 3389
+        CidrIp: 10.57.0.0/16
+      - IpProtocol: tcp
+        FromPort: 3389
+        ToPort: 3389
+        CidrIp: 10.160.0.0/16
+      - IpProtocol: tcp
+        FromPort: 3389
+        ToPort: 3389
+        CidrIp: 10.114.0.0/16      
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.157.0.0/16
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.57.0.0/16
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.160.0.0/16
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.114.0.0/16  
+      - IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1      
+        CidrIp: 10.0.0.0/8 
+      SecurityGroupEgress: [] 
+
+  ### Create Security Group - Private Subnet Tier 2  
+  SecGrpPrvT2:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPCID
+      GroupDescription: "Default Security Group - VPC Private Subnet Tier 2"
+      GroupName: SecGrpPrvt2
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - ''
+          - - scg
+            - "-"            
+            - Ref: NameofRegion
+            - "-"
+            - Ref: Environment
+            - "-"
+            - prv
+            - "-"
+            - t2 
+      - Key: Business Unit
+        Value:
+          Ref: BusinessUnit
+      - Key: Cost Center
+        Value:
+          Ref: CostCenter 
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3389
+        ToPort: 3389
+        CidrIp: 10.157.0.0/16
+      - IpProtocol: tcp
+        FromPort: 3389
+        ToPort: 3389
+        CidrIp: 10.57.0.0/16
+      - IpProtocol: tcp
+        FromPort: 3389
+        ToPort: 3389
+        CidrIp: 10.160.0.0/16
+      - IpProtocol: tcp
+        FromPort: 3389
+        ToPort: 3389
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.157.0.0/16
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.57.0.0/16
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.160.0.0/16
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.114.0.0/16      
+      - IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1      
+        CidrIp: 10.0.0.0/8 
+      SecurityGroupEgress: []         
+  # Apply Inbound Rule - All Traffic to Source Security Group
+  SecGrpPrvT1IngressRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: SecGrpPrvT2
+    Properties:
+      GroupId:
+        Ref: SecGrpPrvT2
+      IpProtocol: -1
+      FromPort: -1
+      ToPort: -1
+      SourceSecurityGroupId:
+        Ref: SecGrpPrvT2
+ 
+  ### Create Security Group - Private Subnet Tier 3
+  SecGrpPrvT3:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPCID
+      GroupDescription: "Default Security Group - VPC Private Subnet Tier 3"
+      GroupName: SecGrpPrvt3
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - ''
+          - - scg
+            - "-"            
+            - Ref: NameofRegion
+            - "-"
+            - Ref: Environment
+            - "-"
+            - prv
+            - "-"
+            - t3 
+      - Key: Business Unit
+        Value:
+          Ref: BusinessUnit
+      - Key: Cost Center
+        Value:
+          Ref: CostCenter 
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3389
+        ToPort: 3389
+        CidrIp: 10.157.0.0/16
+      - IpProtocol: tcp
+        FromPort: 3389
+        ToPort: 3389
+        CidrIp: 10.57.0.0/16
+      - IpProtocol: tcp
+        FromPort: 3389
+        ToPort: 3389
+        CidrIp: 10.160.0.0/16
+      - IpProtocol: tcp
+        FromPort: 3389
+        ToPort: 3389
+        CidrIp: 10.114.0.0/16
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.157.0.0/16
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.57.0.0/16
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.160.0.0/16
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+      - IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1
+        CidrIp: 10.0.0.0/8        
+      SecurityGroupEgress: []         
+  # Apply Inbound Rule - All Traffic to Source Security Group
+  SecGrpPrvT2IngressRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: SecGrpPrvT3
+    Properties:
+      GroupId:
+        Ref: SecGrpPrvT3
+      IpProtocol: -1
+      FromPort: -1
+      ToPort: -1
+      SourceSecurityGroupId:
+        Ref: SecGrpPrvT3

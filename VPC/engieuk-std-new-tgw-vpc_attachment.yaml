@@ -1,0 +1,116 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: v1.0 EngieIT DCN Template for attaching a Client VPC to the TGW
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: Parameters to create the Transit Gateway attachment
+      Parameters:
+      - ServiceType
+      - VPCID
+      - VPCName
+      - ListofSubnetsID
+      - NameofTGW
+      - NameofRegion
+      - TGWID
+      - TGWRouteTableID
+      - Environment
+Parameters:
+  ServiceType:
+    Description: Tag used to describe the purpose of the attachment
+    Type: String
+    Default: H2C-UK
+  VPCID:
+    Type: AWS::EC2::VPC::Id
+    Description: Select the VPC to attach to the UKINF transit gateway
+  VPCName:
+    Type: String
+    Default: VPC-NAME
+    Description: Provide the logical name of the VPC that will be attached to the
+      transit gateway,format VPC-NAME.It is also used to complete the name of the
+      Attachment
+  ListofSubnetsID:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Select multiple PRIVATE attachment subnets. one attachment subnet
+      per AZ is required. If your VPC spans multiple AZs, you must select one (maxiumum
+      one!) attachment subnet per AZ for optimal redundancy.
+  NameofRegion:
+    Description: 'region value used in the Attachment string : tga-<NameofRegion>-<Environment>-<NameofTGW>-<VPCName>,
+      example : tga-euw1-prod-ukinf-inline'
+    Type: String
+    Default: euw1
+  NameofTGW:
+    Description: 'String used to complete the name of the attachment : tga-<NameofRegion>-<Environment>-<NameofTGW>-<VPCName>,
+      example : tga-euw1-prod-ukinf-inline'
+    Type: String
+    Default: ukinf
+  TGWID:
+    Type: String
+    Default: tgw-id
+    Description: Provide the id of the TGW where the attachment will be created
+  TGWRouteTableID:
+    Type: String
+    Default: ''
+    Description: Optional Provide the ID of the route table of the TGW to which the
+      VPC attachment will be associated,ONLY possible if VPC and TGW are in the same
+      AWS account,if no value keep it EMPTY
+  Environment:
+    Description: Environment type dev,uat,prod
+    AllowedValues:
+    - dev
+    - uat
+    - prod
+    Type: String
+    Default: dev
+Mappings: {}
+Conditions:
+  AssociateATTtospecificRT:
+    Fn::Not:
+    - Fn::Equals:
+      - ''
+      - Ref: TGWRouteTableID
+Resources:
+  VPCTransitGatewayAttachment:
+    Type: AWS::EC2::TransitGatewayAttachment
+    Properties:
+      SubnetIds:
+        Ref: ListofSubnetsID
+      TransitGatewayId:
+        Ref: TGWID
+      VpcId:
+        Ref: VPCID
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - ''
+          - - tga-
+            - Ref: NameofRegion
+            - "-"
+            - Ref: Environment
+            - "-"
+            - Ref: NameofTGW
+            - "-"
+            - Ref: VPCName
+      - Key: Service
+        Value:
+          Ref: ServiceType
+  RouteTableTGWAssociation:
+    DependsOn: VPCTransitGatewayAttachment
+    Condition: AssociateATTtospecificRT
+    Type: AWS::EC2::TransitGatewayRouteTableAssociation
+    Properties:
+      TransitGatewayAttachmentId:
+        Ref: VPCTransitGatewayAttachment
+      TransitGatewayRouteTableId:
+        Ref: TGWRouteTableID
+Outputs:
+  AttachementID:
+    Value:
+      Ref: VPCTransitGatewayAttachment
+    Description: ID of the Attachement
+  ServiceType:
+    Value:
+      Ref: ServiceType
+    Description: 'Type of subscribed service '
