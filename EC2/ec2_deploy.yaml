@@ -1,0 +1,256 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Join a Windows instance to an On-Premise Active Directory.
+  Create SSM document, SSM doc and EC2 Instance. Attach EC2 instance to
+  AD. Will need to use Domain Logins to RDP in.
+  Version 3.4
+Metadata:
+  Stack:
+    Value: 0
+  VersionDate:
+    Value: 20190725
+  Identifier:
+    Value: main
+  Input:
+    Description: Input of all required parameters in the stack
+  Output:
+    Description: N/A
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: EC2 Instance Configuration
+      Parameters:
+      - AccountOU
+      - VPC
+      - AMI
+      - InstanceType
+      - DiskSize
+      - DiskType
+      - Subnet
+      - ExistingSecurityGroupID
+      - KeyPair      
+    - Label:
+        default: Tag Information
+      Parameters:
+      - TagName
+      - TagWindowsServerName
+      - TagBackup
+      - TagPatched
+      - TagOwner
+      - TagFunction
+      - TagOS
+      - TagOSVersion
+    ParameterLabels:
+      AccountOU:
+        default: Account OU
+      VPC:
+        default: VPC ID
+      AMI:
+        default: Amazon Machine Image
+      InstanceType:
+        default: Instance Type
+      DiskSize:
+        default: System Partition Size
+      DiskType:
+        default: System Partition Type
+      Subnet:
+        default: Instance Subnet
+      ExistingSecurityGroupID:
+        default: Subnet Security Group
+      KeyPair:
+        default: Access Key Pair      
+      TagName:
+        default: Name
+      TagWindowsServerName:
+        default: Windows Server Name
+      TagBackup:
+        default: Backup
+      TagOwner:
+        default: Owner
+      TagPatched:
+        default: Patched
+      TagFunction:
+        default: Function
+      TagOS:
+        default: Operating System
+      TagOSVersion:
+        default: Operating System Version
+
+Parameters:
+  InstanceProfileName:
+    Description: IAM instance profile name to attach to the EC2 instance
+    Type: String
+    AllowedValues:
+      - S3readaccess
+    Default: S3readaccess
+  VPC:
+    Type: AWS::EC2::VPC::Id
+    Description: Select the VPC to place this instance
+  AMI:
+    Type: String
+    Description: Select a Windows Amazon Machine Image for this Instance
+    AllowedValues:
+    - Win2019Base
+    - Win2016Base  
+  InstanceType:
+    Type: String
+    Description: Select the Instance Type
+    Default: t2.micro
+    AllowedValues:
+    - t2.micro
+    - t2.small
+    - t2.medium
+    - m1.small
+    - m1.medium
+    - m1.large
+    - m1.xlarge
+    - m2.xlarge
+    - m2.2xlarge
+    - m2.4xlarge
+    - m3.medium
+    - m3.large
+    - m3.xlarge
+    - m3.2xlarge
+    - m5.xlarge
+    - c1.medium
+    - c1.xlarge
+    - c3.large
+    - c3.xlarge
+    - c3.2xlarge
+    - c3.4xlarge
+    - c3.8xlarge
+    - c4.large
+    - c4.xlarge
+    - c4.2xlarge
+    - c4.4xlarge
+    - c4.8xlarge
+    - g2.2xlarge
+    - r3.large
+    - r3.xlarge
+    - r3.2xlarge
+    - r3.4xlarge
+    - r3.8xlarge
+    - i2.xlarge
+    - i2.2xlarge
+    - i2.4xlarge
+    - i2.8xlarge
+    - d2.xlarge
+    - d2.2xlarge
+    - d2.4xlarge
+    - d2.8xlarge
+    - hi1.4xlarge
+    - hs1.8xlarge
+    - cr1.8xlarge
+    - cc2.8xlarge
+    - cg1.4xlarge
+    ConstraintDescription: Must be a valid EC2 instance type.
+  DiskSize:
+    Description: Instance Primary Disk Size (Gb)
+    Type: Number
+    Default : 30
+  DiskType:
+    Description: Select a Volume type (gp2=General Purpose SSD, io1=Provisioned IOPS SSD, st1=Throughput Optimized HDD, sc1=Cold HDD)
+    AllowedValues:
+    - gp2
+    - io1
+    - st1
+    - sc1
+    Type: String
+    Default: gp2
+  Subnet:
+    Type: AWS::EC2::Subnet::Id
+    Description: Select a Subnet to place this instance
+  ExistingSecurityGroupID:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Select a Security Group to place this instance
+  KeyPair:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Select a KeyPair for this EC2 Instance
+  TagName:
+    Description: Enter the Name of the EC2 instance
+    Type: String
+    Default: Name
+  TagWindowsServerName:
+    Description: Enter Windows Server Name
+    Type: String
+    Default: Windows
+  TagBackup:
+    Description: Is the Instance being backed up (Yes or No)
+    Type: String
+    Default: Yes
+  TagOwner:
+    Description: Enter the Team/Owner of this Instance (eg. Energy Services, Smart Buildings)
+    Type: String
+    Default: Team/Owner Name?
+  TagFunction:
+    Description: Enter the function of the EC2 instance (Monitoring Server)
+    Type: String
+    Default: Monitoring Server
+  TagOS:
+    Description: Enter the Operating System of the EC2 instance
+    Type: String
+    Default: Windows
+  TagOSVersion:
+    Description: Enter the version of Operating System
+    Type: String
+    Default: Server 2019
+  TagPatched:
+    Description: Is the instance being Patched
+    Type: String
+    Default: Yes
+Mappings:
+  RegionAMIMap:
+    eu-west-1:
+      Win2019Base: ami-01c8584ce4ac83765
+      Win2016Base: ami-0782e691e989998df
+    eu-west-2:
+      Win2019Base: ami-08ce0f1cd8b30bf4e
+      Win2016Base: ami-02a9c04e461574620
+Resources:
+  myEC2InstanceSSM:
+    Type: AWS::EC2::Instance
+    Properties:
+      IamInstanceProfile:
+        Ref: InstanceProfileName
+      BlockDeviceMappings:
+        -
+          DeviceName: "/dev/sda1"
+          Ebs:
+            Encrypted: True
+            VolumeSize: !Ref DiskSize
+            VolumeType: !Ref DiskType
+      UserData:
+        Fn::Base64: |
+          <powershell>
+            (New-Object System.Net.WebClient).DownloadFile("https://s3.eu-west-1.amazonaws.com/test.equans.co.uk/NewFile.ps1", "C:\script.ps1")
+            Invoke-Expression "C:\script.ps1"
+            </powershell>
+      KeyName:
+        Ref: KeyPair
+      ImageId: !FindInMap
+        - RegionAMIMap
+        - Ref: 'AWS::Region'
+        - Ref: AMI
+      InstanceType:
+        Ref: InstanceType
+      Tags:
+      - Key: Name
+        Value: !Ref TagName
+      - Key: Windows Server Name
+        Value: !Ref TagWindowsServerName
+      - Key: Backup
+        Value: !Ref TagBackup
+      - Key: Patched
+        Value: !Ref TagPatched
+      - Key: Owner
+        Value: !Ref TagOwner
+      - Key: Function
+        Value: !Ref TagFunction
+      - Key: OS
+        Value: !Ref TagOS
+      - Key: OS Version
+        Value: !Ref TagOSVersion
+      SubnetId:
+        Ref: Subnet
+      SecurityGroupIds:
+      - Ref: ExistingSecurityGroupID
