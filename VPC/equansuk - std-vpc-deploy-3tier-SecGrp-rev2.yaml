@@ -1,0 +1,504 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  This template creates the baseline security groups for a 3 Tier VPC
+Metadata:
+  Stack:
+    Value: 0
+  VersionDate:
+    Value: 20190725
+  Identifier:
+    Value: main
+  Input:
+    Description: Input of all required parameters in the stack
+  Output:
+    Description: N/A
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: VPC - BASELINE SECURITY GROUP CONFIGURATION
+      Parameters:
+      - VPCID
+      - VPCTag
+      - NameofRegion
+    - Label:
+        default: Public Security Group Configuration
+      Parameters:
+      - PublicSubnetT1Flag
+      - PublicT1EnvTag
+    - Label:
+        default: Private Tier 2 Security Group Configuration
+      Parameters:
+      - PrivateSubnetT2Flag
+      - PrivateT2EnvTag
+      - PrivateSubnetT2OptFlag
+      - PrivateT2OptEnvTag
+    - Label:
+        default: Private Tier 3 Security Group Configuration
+      Parameters:
+      - PrivateSubnetT3Flag
+      - PrivateT3EnvTag
+    - Label:
+        default: Private Infrastructure Security Group Configuration
+      Parameters:
+      - PrivateSubnetFwFlag
+      - PrivateSubnetVpceFlag
+    - Label:
+        default: Business Identification
+      Parameters:
+      - BusinessUnit
+      - CostCenter
+    ParameterLabels:
+      VPCID:
+        default: VPC 
+      NameofRegion:
+        default: Region
+      PublicSubnet:
+        default: Public Subnet
+      PublicSubnetT1Flag:
+        default: Public Subnet
+      PublicT1EnvTag:
+        default: Public Subnet
+      PrivateSubnetT2Flag:
+        default: Private - Application Tier 2        
+      PrivateT2EnvTag:
+        default: Private Subnet
+      PrivateSubnetT2OptFlag:
+        default: Private - Application Tier 2 (Additional Subnet)
+      PrivateT2OptEnvTag:
+        default: Private Subnet
+      PrivateSubnetT3Flag:
+        default: Private - Database Tier 3
+      PrivateT3EnvTag:
+        default: Private Subnet
+      PrivateSubnetFwFlag:
+        default: Private - AWS Network Firewall Subnet
+      PrivateFwEnvTag:
+        default: Firewall Subnet
+      PrivateSubnetVpceFlag:
+        default: Private - VPC Endpoint Subnet
+      PrivateVpceEnvTag:
+        default: VPC Endpoint Subnet
+      BusinessUnit:
+        default: Business Unit identifiers
+      CostCenter:
+        default: Cost Center
+
+Parameters:
+  VPCID:
+    Description: "Select the VPC to be applied to"
+    Type: AWS::EC2::VPC::Id 
+  VPCTag:
+    Description: "Enter a VPC Name tag, this will be used at the end of the Security Group name (scg-euw2-qas-pub-t1-sap)"
+    Type: String
+  NameofRegion:
+    Description: 'Region value used in Name tags string : Ireland = euw1; UK = euw2 (example : scg-euw1-dev-pub-t1)'
+    AllowedValues:
+    - euw1
+    - euw2
+    - euw3
+    - use1
+    Type: String
+    Default: euw2
+  PublicSubnetT1Flag:
+    AllowedValues:
+    - 'yes'
+    - 'no'
+    Default: 'yes'
+    Description: "Add a Security Group for the Tier 1 Public Subnet"
+    Type: String
+  PublicT1EnvTag:
+    Description: "Environment type for this Security Group (Production = prd; Development = dev; Pre Production = uat; QAS = qas))"
+    AllowedValues:
+    - prd
+    - dev
+    - uat
+    - qas
+    Type: String
+    Default: dev
+  PrivateSubnetT2Flag:
+    AllowedValues:
+    - 'yes'
+    - 'no'
+    Default: 'yes'
+    Description: "Add a Security Group for the Tier 2 Private Subnets"
+    Type: String
+  PrivateT2EnvTag:
+    Description: "Environment type for this Security Group (Production = prd; Development = dev; Pre Production = uat; QAS = qas))"
+    AllowedValues:
+    - prd
+    - dev
+    - uat
+    - qas
+    Type: String
+    Default: dev
+  PrivateSubnetT2OptFlag:
+    AllowedValues:
+    - 'yes'
+    - 'no'
+    Default: 'no'
+    Description: "Add a Security Group for an additional Tier 2 Private Subnet"
+    Type: String
+  PrivateT2OptEnvTag:
+    Description: "Environment type for this Security Group (Production = prd; Development = dev; Pre Production = uat; QAS = qas))"
+    AllowedValues:
+    - prd
+    - dev
+    - uat
+    - qas
+    Type: String
+    Default: dev
+  PrivateSubnetT3Flag:
+    AllowedValues:
+    - 'yes'
+    - 'no'
+    Default: 'yes'
+    Description: "Add a Security Group for the Tier 3 Private Subnets"
+    Type: String
+  PrivateT3EnvTag:
+    Description: "Environment type for this Security Group (Production = prd; Development = dev; Pre Production = uat; QAS = qas))"
+    AllowedValues:
+    - prd
+    - dev
+    - uat
+    - qas
+    Type: String
+    Default: dev
+  PrivateSubnetFwFlag:
+    AllowedValues:
+    - 'yes'
+    - 'no'
+    Default: 'yes'
+    Description: "Add a Security Group for the AWS Network Firewall Subnet"
+    Type: String
+  PrivateSubnetVpceFlag:
+    AllowedValues:
+    - 'yes'
+    - 'no'
+    Default: 'yes'
+    Description: "Add a Security Group for VPC Endpoint Subnet"
+    Type: String
+  BusinessUnit:
+    Description: "Business Unit identifiers"
+    Default: bu07
+    Type: String
+  CostCenter:
+    Description: "Cost Center for Billing"
+    Default: HQ - EQUANS UK
+    Type: String
+
+Conditions:
+  CreateSubnetPublicT1:
+    Fn::Equals:
+    - Ref: PublicSubnetT1Flag
+    - 'yes'
+  CreateSubnetPrivateT2:
+    Fn::Equals:
+    - Ref: PrivateSubnetT2Flag
+    - 'yes'
+  CreateSubnetPrivateOptT2:
+    Fn::Equals:
+    - Ref: PrivateSubnetT2OptFlag
+    - 'yes'
+  CreateSubnetPrivateT3:
+    Fn::Equals:
+    - Ref: PrivateSubnetT3Flag
+    - 'yes'
+  CreateSubnetPrivateFw:
+    Fn::Equals:
+    - Ref: PrivateSubnetFwFlag
+    - 'yes'
+  CreateSubnetPrivateVpce:
+    Fn::Equals:
+    - Ref: PrivateSubnetVpceFlag
+    - 'yes'
+
+
+Resources:
+  ### Create Security Group - Public Subnet Tier 1
+  SecGrpPubT1:
+    Condition: CreateSubnetPublicT1
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPCID
+      GroupDescription: "Default Security Group - VPC Public Subnet"
+      GroupName: SecGrpPubt1
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - ''
+          - - scg
+            - "-"            
+            - Ref: NameofRegion
+            - "-"
+            - Ref: PublicT1EnvTag
+            - "-"
+            - pub
+            - "-"
+            - t1
+            - "-"
+            - Ref: VPCTag            
+      - Key: Business Unit
+        Value:
+          Ref: BusinessUnit
+      - Key: Cost Center
+        Value:
+          Ref: CostCenter 
+      SecurityGroupIngress: 
+      - IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1      
+        CidrIp: 10.0.0.0/8 
+      SecurityGroupEgress: [] 
+
+  ### Create Security Group - Private Subnet Tier 2  
+  SecGrpPrvT2:
+    Condition: CreateSubnetPrivateT2
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPCID
+      GroupDescription: "Default Security Group - VPC Private Subnet Tier 2"
+      GroupName: SecGrpPrvt2
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - ''
+          - - scg
+            - "-"            
+            - Ref: NameofRegion
+            - "-"
+            - Ref: PrivateT2EnvTag
+            - "-"
+            - prv
+            - "-"
+            - t2
+            - "-"
+            - Ref: VPCTag            
+      - Key: Business Unit
+        Value:
+          Ref: BusinessUnit
+      - Key: Cost Center
+        Value:
+          Ref: CostCenter 
+      SecurityGroupIngress:   
+      - IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1      
+        CidrIp: 10.0.0.0/8 
+      SecurityGroupEgress: []         
+  # Apply Inbound Rule - All Traffic to Source Security Group
+  SecGrpPrvT2IngressRule:
+    Condition: CreateSubnetPrivateT2
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: SecGrpPrvT2
+    Properties:
+      GroupId:
+        Ref: SecGrpPrvT2
+      IpProtocol: -1
+      FromPort: -1
+      ToPort: -1
+      SourceSecurityGroupId:
+        Ref: SecGrpPrvT2
+ 
+  ### Create Security Group - Private Subnet Tier 2 (Additional Tier 2 Subnet)  
+  SecGrpPrvT2Opt:
+    Condition: CreateSubnetPrivateOptT2
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPCID
+      GroupDescription: "Default Security Group - VPC Private Subnet Tier 2"
+      GroupName: SecGrpPrvT2Opt
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - ''
+          - - scg
+            - "-"            
+            - Ref: NameofRegion
+            - "-"
+            - Ref: PrivateT2OptEnvTag
+            - "-"
+            - prv
+            - "-"
+            - t2
+            - "-"
+            - Ref: VPCTag            
+      - Key: Business Unit
+        Value:
+          Ref: BusinessUnit
+      - Key: Cost Center
+        Value:
+          Ref: CostCenter 
+      SecurityGroupIngress:   
+      - IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1      
+        CidrIp: 10.0.0.0/8 
+      SecurityGroupEgress: []         
+  # Apply Inbound Rule - All Traffic to Source Security Group
+  SecGrpPrvT1OptIngressRule:
+    Condition: CreateSubnetPrivateOptT2
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: SecGrpPrvT2Opt
+    Properties:
+      GroupId:
+        Ref: SecGrpPrvT2Opt
+      IpProtocol: -1
+      FromPort: -1
+      ToPort: -1
+      SourceSecurityGroupId:
+        Ref: SecGrpPrvT2Opt 
+ 
+  ### Create Security Group - Private Subnet Tier 3
+  SecGrpPrvT3:
+    Condition: CreateSubnetPrivateT3
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPCID
+      GroupDescription: "Default Security Group - VPC Private Subnet Tier 3"
+      GroupName: SecGrpPrvt3
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - ''
+          - - scg
+            - "-"            
+            - Ref: NameofRegion
+            - "-"
+            - Ref: PrivateT3EnvTag
+            - "-"
+            - prv
+            - "-"
+            - t3
+            - "-"
+            - Ref: VPCTag           
+      - Key: Business Unit
+        Value:
+          Ref: BusinessUnit
+      - Key: Cost Center
+        Value:
+          Ref: CostCenter 
+      SecurityGroupIngress:
+      - IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1
+        CidrIp: 10.0.0.0/8        
+      SecurityGroupEgress: []         
+  # Apply Inbound Rule - All Traffic to Source Security Group
+  SecGrpPrvT3IngressRule:
+    Condition: CreateSubnetPrivateT3
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: SecGrpPrvT3
+    Properties:
+      GroupId:
+        Ref: SecGrpPrvT3
+      IpProtocol: -1
+      FromPort: -1
+      ToPort: -1
+      SourceSecurityGroupId:
+        Ref: SecGrpPrvT3
+
+  ### Create Security Group - Private Infrastructure Subnet - AWS Network Firewall
+  SecGrpPrvFw:
+    Condition: CreateSubnetPrivateFw
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPCID
+      GroupDescription: "Default Security Group - VPC Private Subnet - AWS Network Firewall"
+      GroupName: SecGrpPrvFw
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - ''
+          - - scg
+            - "-"            
+            - Ref: NameofRegion
+            - "-"
+            - pub
+            - "-"
+            - fw
+            - "-"
+            - Ref: VPCTag           
+      - Key: Business Unit
+        Value:
+          Ref: BusinessUnit
+      - Key: Cost Center
+        Value:
+          Ref: CostCenter 
+      SecurityGroupIngress:
+      - IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1
+        CidrIp: 10.0.0.0/8        
+      SecurityGroupEgress: []         
+  # Apply Inbound Rule - All Traffic to Source Security Group
+  SecGrpPrvFwIngressRule:
+    Condition: CreateSubnetPrivateFw
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: SecGrpPrvFw
+    Properties:
+      GroupId:
+        Ref: SecGrpPrvFw
+      IpProtocol: -1
+      FromPort: -1
+      ToPort: -1
+      SourceSecurityGroupId:
+        Ref: SecGrpPrvFw
+
+  ### Create Security Group - Private Infrastructure Subnet - VPC Endpoints
+  SecGrpPrvVpce:
+    Condition: CreateSubnetPrivateVpce
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPCID
+      GroupDescription: "Default Security Group - VPC Private Subnet VPC Endpoints"
+      GroupName: SecGrpPrvVpce
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - ''
+          - - scg
+            - "-"            
+            - Ref: NameofRegion
+            - "-"
+            - prv
+            - "-"
+            - vpce
+            - "-"
+            - Ref: VPCTag           
+      - Key: Business Unit
+        Value:
+          Ref: BusinessUnit
+      - Key: Cost Center
+        Value:
+          Ref: CostCenter 
+      SecurityGroupIngress:
+      - IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1
+        CidrIp: 10.0.0.0/8        
+      SecurityGroupEgress: []         
+  # Apply Inbound Rule - All Traffic to Source Security Group
+  SecGrpPrvVpceIngressRule:
+    Condition: CreateSubnetPrivateVpce
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: SecGrpPrvVpce
+    Properties:
+      GroupId:
+        Ref: SecGrpPrvVpce
+      IpProtocol: -1
+      FromPort: -1
+      ToPort: -1
+      SourceSecurityGroupId:
+        Ref: SecGrpPrvVpce
